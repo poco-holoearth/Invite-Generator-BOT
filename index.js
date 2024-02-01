@@ -20,7 +20,7 @@ client.once("ready", async () => {
 
     setInterval(() => {
       client.user.setActivity({
-        name: `Create invite link! | ${client.ws.ping}ms | ${client.guilds.cache.size}Servers`
+        name: `Generate Invite link! | ${client.ws.ping}ms | ${client.guilds.cache.size} Servers`
       });
     }, 10000); // 10秒ごとにアクティビティを更新
 
@@ -133,13 +133,25 @@ client.on("interactionCreate", async (interaction) => {
         return;
       }
 
+      if (!channel.permissionsFor(interaction.user)?.has('CREATE_INSTANT_INVITE')) {
+        await interaction.followUp({
+          content: 'あなたは「招待を作成」の権限を持っていません。\nYou do not have "Create invite" permission.',
+          ephemeral: true,
+        });
+
+        const logMessage = `[${new Date().toLocaleString()}] Error: no permission, Slash commands: invite, User: ${interaction.user.tag} (ID: ${interaction.user.id}), Server: ${interaction.guild?.name || 'DM'}`;
+        console.log(logMessage);
+        log(logMessage);
+        return;
+      }
+
       //招待リンク生成
       const invite = await channel.createInvite({
         temporary: false,
         maxAge: expire === '0' ? 0 : parseInt(expire),
         maxUses: uses === '0' ? 0 : parseInt(uses),
         unique: true,
-        reason: `Generated from /invite by ${interaction.user.tag}.`,
+        reason: `Generated from /invite by ${interaction.user.tag} (${interaction.user.id}).`,
       });
 
       const logMessage = `[${new Date().toLocaleString()}] Slash commands: invite,  User: ${interaction.user.tag} (ID: ${interaction.user.id}), Server: ${interaction.guild?.name || 'DM'}`;
