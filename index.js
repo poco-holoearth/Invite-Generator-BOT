@@ -201,9 +201,10 @@ client.on("interactionCreate", async (interaction) => {
 
       const logChannel = client.channels.cache.get(logChannelId);
 
+      // optionのchoicesのところのnameを持ってきたいけどやり方わからん
       const embed = new MessageEmbed()
         .setTitle('Generate invite link')
-        .setDescription(`Generator: <@${interaction.user.id}> (${interaction.user.id})\nexpire: ${expire} 秒\nuses: ${uses}\nInvite link: ${invite.url}`)
+        .setDescription(`Generator: <@${interaction.user.id}> (${interaction.user.id})\nExpire: ${expire} sec\nUses: ${uses} uses\nChannel: ${channel}\nInvite link: ${invite.url}`)
         .setTimestamp();
 
       logChannel.send({ embeds: [embed] });
