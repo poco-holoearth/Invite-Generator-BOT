@@ -1,9 +1,35 @@
-const { Client, Intents } = require('discord.js');
+const { Client, Intents, MessageEmbed } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const config = require('./config');
 
-const client = new Client({ intents: [Intents.FLAGS.GUILDS] });
+const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_MESSAGES] });
+
+const channelConfigFile = 'channel_config.json';
+
+let channelConfig = {};
+
+function saveChannelConfig() {
+  fs.writeFileSync(channelConfigFile, JSON.stringify(channelConfig, null, 2), 'utf-8');
+}
+
+function loadChannelConfig() {
+  try {
+    const data = fs.readFileSync(channelConfigFile, 'utf-8');
+    channelConfig = JSON.parse(data);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      saveChannelConfig();
+    } else {
+      const Error = `[${new Date().toLocaleString()}] Error: ${err.message}`;
+      console.error(Error);
+      log(Error);
+    }
+  }
+}
+
+loadChannelConfig();
+
 
 // Logging
 function log(log) {
@@ -70,8 +96,20 @@ client.once("ready", async () => {
       },
       {
         name: "ping",
-        description: "Ping値を表示します。BOTの動作確認などにご使用ください。",
-      }
+        description: 'Ping値を表示します。BOTの動作確認などにご使用ください。',
+      },
+      {
+        name: 'log',
+        description: '招待コードが生成された時に指定されたチャンネルにログを残します。',
+        options: [
+          {
+            name: 'channel',
+            description: 'ログを送信するチャンネルを選択してください。',
+            type: 'CHANNEL',
+            required: true,
+          },
+        ],
+      },
     ];
 
     await client.application.commands.set(commands);
@@ -158,10 +196,63 @@ client.on("interactionCreate", async (interaction) => {
       console.log(logMessage);
       log(logMessage);
 
+      // logの送信
+      const logChannelId = channelConfig[interaction.guild.id];
+
+      const logChannel = client.channels.cache.get(logChannelId);
+
+      const embed = new MessageEmbed()
+        .setTitle('Generate invite link')
+        .setDescription(`Generator: <@${interaction.user.id}> (${interaction.user.id})\nexpire: ${expire} 秒\nuses: ${uses}\nInvite link: ${invite.url}`)
+        .setTimestamp();
+
+      logChannel.send({ embeds: [embed] });
+
       await interaction.followUp({
         content: `招待リンクが生成されました。\nInvite link generated.\n${invite.url}`,
         ephemeral: true,
       });
+
+
+    } catch (error) {
+      const logMessage = `[${new Date().toLocaleString()}] Error: ${error.message}`;
+      console.log(logMessage);
+      log(logMessage);
+      await interaction.followUp({ content: `Error: ${error.message}`, ephemeral: true });
+    }
+  }
+
+  // log
+  if (interaction.commandName === "log") {
+    try {
+      await interaction.deferReply({ ephemeral: true });
+      
+      if (!interaction.member.permissions.has('ADMINISTRATOR')) {
+        await interaction.followUp({
+          content: 'このコマンドを実行するためには管理者権限が必要です。\nYou need administrator permissions to execute this command.',
+          ephemeral: true,
+        });
+
+        const logMessage = `[${new Date().toLocaleString()}] Error: no permission, Slash commands: log, User: ${interaction.user.tag} (ID: ${interaction.user.id}), Server: ${interaction.guild?.name || 'DM'}`;
+        console.log(logMessage);
+        log(logMessage);
+        return;
+      }
+
+      const logChannel = interaction.options.getChannel('channel') || interaction.channel;
+
+      // ログチャンネルの保存
+      channelConfig[interaction.guild.id] = logChannel.id;
+      saveChannelConfig();
+
+      await interaction.followUp({
+        content: `ログを送信するチャンネルを ${logChannel.toString()} に設定しました。\nSet the log channel to ${logChannel.toString()}.`,
+        ephemeral: true,
+      });
+
+      const logMessage = `[${new Date().toLocaleString()}] Slash commands: log, User: ${interaction.user.tag} (ID: ${interaction.user.id}), Server: ${interaction.guild?.name || 'DM'}`;
+      console.log(logMessage);
+      log(logMessage);
 
     } catch (error) {
       const logMessage = `[${new Date().toLocaleString()}] Error: ${error.message}`;
